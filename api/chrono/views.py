@@ -116,14 +116,11 @@ def get_badges(request, user_id):
     serialized_user = serializers.UserSerializer(user).data
 
     data_to_return = {
-        'badges' : [],
+        'badges' : {},
         'name': serialized_user['first_name'] + ' ' + serialized_user['last_name']
     }
     for badge in serialized_badges:
         dates = badge['timestamp'].split('-')
-        data_to_return['badges'].append({
-            'month': str(calendar.month_name[int(dates[1])]) + ' ' + dates[2],
-            'image': badge['image']
-        })
-
+        date = str(calendar.month_name[int(dates[1])]) + ' ' + dates[2]
+        data_to_return['badges'][date] = badge['image']
     return Response(data_to_return)
