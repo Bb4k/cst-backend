@@ -21,19 +21,37 @@ ENTITY_DELETED_SUCCESSFULLY = "Entity deleted successfully"
 def get_data_for_date(request, user_id, date):
     activities = models.Activity.objects.filter(timestamp=date).filter(user_id=user_id)
     serialized_activities = serializers.ActivitySerializer(activities, many=True).data
-    data_to_return = {}
+    data_to_return = {
+        'usage': {},
+        'score': 0,
+        'total_time': 0
+    }
+
     for activity in serialized_activities:
         app = models.Application.objects.get(id=activity['application'])
         serialized_app = serializers.ApplicationSerializer(app, many=False).data
 
-        if serialized_app['category'] not in data_to_return:
-            data_to_return[serialized_app['category']] = []
-        data_to_return[serialized_app['category']].append({
-            "Name": serialized_app["name"],
-            "Image": serialized_app["logo"],
-            "Time": activity["duration"],
-            "Points": activity["duration"] * serialized_app["score"]
+        if serialized_app['category'] not in data_to_return['usage']:
+            data_to_return['usage'][serialized_app['category']] = []
+        data_to_return['score'] = activity["duration"] * serialized_app["score"]
+        data_to_return['total_time'] += activity["duration"]
+
+        activity_minutes = (activity["duration"] / (1000 * 60)) % 60
+        activity_minutes = int(activity_minutes)
+        activity_hours = (activity["duration"] / (1000 * 60 * 60)) % 24
+
+        data_to_return['usage'][serialized_app['category']].append({
+            "name": serialized_app["name"],
+            "logo": serialized_app["logo"],
+            "time": str(round(activity_hours)) + 'h:' + str(round(activity_minutes)) + 'm',
+            "score": activity["duration"] * serialized_app["score"]
         })
+
+        minutes = (data_to_return['total_time'] / (1000 * 60)) % 60
+        minutes = int(minutes)
+        hours = (data_to_return['total_time'] / (1000 * 60 * 60)) % 24
+
+        data_to_return['total_time'] = str(round(hours)) + 'h:' + str(round(minutes)) + 'm'
 
     return Response(data_to_return)
 
@@ -76,7 +94,6 @@ def upsert_activity(request, user_id):
 
     data = JSONParser().parse(request)
 
-
     if data['apps']:
         for app in data['apps']:
             current_app = models.Application.objects.filter(name=app['app_name'])
@@ -107,6 +124,7 @@ def upsert_activity(request, user_id):
     else:
         return HttpResponseNotFound()
 
+
 @api_view(['GET'])
 def get_badges(request, user_id):
     badges = models.Badge.objects.filter(user=user_id)
@@ -116,7 +134,7 @@ def get_badges(request, user_id):
     serialized_user = serializers.UserSerializer(user).data
 
     data_to_return = {
-        'badges' : {},
+        'badges': {},
         'name': serialized_user['first_name'] + ' ' + serialized_user['last_name']
     }
     for badge in serialized_badges:
@@ -124,3 +142,70 @@ def get_badges(request, user_id):
         date = str(calendar.month_name[int(dates[1])]) + ' ' + dates[2]
         data_to_return['badges'][date] = badge['image']
     return Response(data_to_return)
+
+
+@api_view(['POST'])
+def register_user(request):
+    data = JSONParser().parse(request)
+    user = serializers.UserSerializer(data=data)
+    if user.is_valid():
+        user.save()
+        return Response("Added Successfully!!")
+    else:
+        return HttpResponseNotFound("Failed to Add.")
+
+
+@api_view(['POST'])
+def login_user(request):
+    data = JSONParser().parse(request)
+    if not data['email'] or not data['password']:
+        return HttpResponseNotFound('Credentials not provided')
+    else:
+        user = models.User.objects.filter(email=data['email']).first()
+        if not user:
+            return HttpResponseNotFound("User not found")
+
+        user_serialized = serializers.UserSerializer(user).data
+
+        if user_serialized['password'] != data['password']:
+            return HttpResponseNotFound("Wrong password")
+
+        company = models.Company.objects.filter(id=user_serialized['company']).first()
+        company_serialized = serializers.CompanySerializer(company).data
+
+        data_to_return = {
+            'userId': user_serialized['id'],
+            'name': user_serialized['first_name'] + ' ' + user_serialized['last_name'],
+            'company': company_serialized['name'],
+            'badges': {}
+        }
+
+        badges = models.Badge.objects.filter(user=user_serialized['id'])
+        serialized_badges = serializers.BadgeSerializer(badges, many=True).data
+
+        for badge in serialized_badges:
+            if len(data_to_return['badges'].keys()) == 3:
+                break
+            dates = badge['timestamp'].split('-')
+            date = str(calendar.month_name[int(dates[1])]) + ' ' + dates[2]
+            data_to_return['badges'][date] = badge['image']
+
+        return Response(data_to_return)
+
+
+@api_view(['GET'])
+def get_users(request, company_id):
+    users = models.User.objects.filter(company=company_id)
+    serializer = serializers.UserSerializer(users, many=True)
+
+    return Response(serializer.data)
+
+
+@api_view(['DELETE'])
+def delete_user(request, user_id):
+    user = models.User.objects.get(id=user_id)
+    if user:
+        user.delete()
+        return Response("Deleted")
+    else:
+        return Response("Nothing to delete")

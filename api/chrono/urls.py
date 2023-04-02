@@ -21,4 +21,9 @@ urlpatterns = [
     path('get-leaderboard/<int:company_id>/', views.get_leaderboard),
     path('upsert-activity/<int:user_id>/', views.upsert_activity),
     path('get-badges/<int:user_id>/', views.get_badges),
+    path('register-user/', views.register_user),
+    path('login-user/', views.login_user),
+    path('get-users/<int:company_id>', views.get_users),
+    path('delete-user/<int:user_id>', views.delete_user),
+
 ]
