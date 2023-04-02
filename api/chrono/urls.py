@@ -25,5 +25,7 @@ urlpatterns = [
     path('login-user/', views.login_user),
     path('get-users/<int:company_id>', views.get_users),
     path('delete-user/<int:user_id>', views.delete_user),
+    path('get-progress/daily/<int:user_id>', views.get_progress_daily),
+    path('get-progress/monthly/<int:user_id>', views.get_progress_monthly),
 
 ]

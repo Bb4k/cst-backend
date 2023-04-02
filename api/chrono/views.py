@@ -209,3 +209,50 @@ def delete_user(request, user_id):
         return Response("Deleted")
     else:
         return Response("Nothing to delete")
+
+
+@api_view(['GET'])
+def get_progress_monthly(request, user_id):
+    today = datetime.now()
+    month = today.month
+    year = today.year
+
+    monthly = []
+
+    for i in range(1, month + 1):
+        activities = models.Activity.objects.filter(
+            timestamp__contains=str(i) + '-' + str(year)).filter(user_id=user_id)
+        serialized_activities = serializers.ActivitySerializer(activities, many=True).data
+        sum = 0
+        for activity in serialized_activities:
+            sum += activity['points']
+        monthly.append({
+            'date': str(calendar.month_name[i]),
+            'score': sum
+        })
+
+    return Response(monthly)
+
+
+@api_view(['GET'])
+def get_progress_daily(request, user_id):
+    today = datetime.now()
+    month = today.month
+    day = today.day
+    year = today.year
+
+    daily = []
+
+    for i in range(1, day + 1):
+        activities = models.Activity.objects.filter(
+            timestamp__contains=str(i) + '-' + str(month) + '-' + str(year)).filter(user_id=user_id)
+        serialized_activities = serializers.ActivitySerializer(activities, many=True).data
+        sum = 0
+        for activity in serialized_activities:
+            sum += activity['points']
+        daily.append({
+            'date': i,
+            'score': sum
+        })
+
+    return Response(daily)
