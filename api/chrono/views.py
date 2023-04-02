@@ -174,6 +174,7 @@ def login_user(request):
         company_serialized = serializers.CompanySerializer(company).data
 
         data_to_return = {
+            'companyId': user_serialized['company'],
             'userId': user_serialized['id'],
             'name': user_serialized['first_name'] + ' ' + user_serialized['last_name'],
             'company': company_serialized['name'],
